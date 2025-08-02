@@ -236,8 +236,11 @@ public class WebShareController extends CommonFileController {
                                 @VerifyParam(required = true) String shareId,
                                 @VerifyParam(required = true) String shareFileIds,
                                 @VerifyParam(required = true) String myFolderId) {
-        SessionShareDto shareSessionDto = checkShare(session, shareId);
+        SessionShareDto shareSessionDto = getSessionShareFromSession(session, shareId);
         SessionWebUserDto webUserDto = getUserInfoFromSession(session);
+        if (shareSessionDto == null || webUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         if (shareSessionDto.getShareUserId().equals(webUserDto.getUserId())) {
             throw new BusinessException("自己分享的文件无法保存到自己的网盘");
         }

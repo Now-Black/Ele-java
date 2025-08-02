@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import com.easypan.entity.dto.SessionWebUserDto;
+import javax.servlet.http.HttpSession;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 @RestController("adminController")
 @RequestMapping("/admin")
@@ -33,19 +38,24 @@ public class AdminController extends CommonFileController {
     @Resource
     private FileInfoService fileInfoService;
 
-    @RequestMapping("/getSysSettings")
+    @RequestMapping(value = "/getSysSettings", method = {RequestMethod.GET, RequestMethod.POST})
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
     public ResponseVO getSysSettings() {
         return getSuccessResponseVO(redisComponent.getSysSettingsDto());
     }
 
 
-    @RequestMapping("/saveSysSettings")
+    @PostMapping("/saveSysSettings")
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
     public ResponseVO saveSysSettings(
             @VerifyParam(required = true) String registerEmailTitle,
             @VerifyParam(required = true) String registerEmailContent,
-            @VerifyParam(required = true) Integer userInitUseSpace) {
+            @VerifyParam(required = true) Integer userInitUseSpace,
+            HttpSession session) {
+        SessionWebUserDto webUserDto = getUserInfoFromSession(session);
+        if (webUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         SysSettingsDto sysSettingsDto = new SysSettingsDto();
         sysSettingsDto.setRegisterEmailTitle(registerEmailTitle);
         sysSettingsDto.setRegisterEmailContent(registerEmailContent);
@@ -54,7 +64,7 @@ public class AdminController extends CommonFileController {
         return getSuccessResponseVO(null);
     }
 
-    @RequestMapping("/loadUserList")
+    @RequestMapping(value = "/loadUserList", method = {RequestMethod.GET, RequestMethod.POST})
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
     public ResponseVO loadUser(UserInfoQuery userInfoQuery) {
         userInfoQuery.setOrderBy("join_time desc");
@@ -63,16 +73,24 @@ public class AdminController extends CommonFileController {
     }
 
 
-    @RequestMapping("/updateUserStatus")
+    @PostMapping("/updateUserStatus")
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
-    public ResponseVO updateUserStatus(@VerifyParam(required = true) String userId, @VerifyParam(required = true) Integer status) {
+    public ResponseVO updateUserStatus(@VerifyParam(required = true) String userId, @VerifyParam(required = true) Integer status, HttpSession session) {
+        SessionWebUserDto webUserDto = getUserInfoFromSession(session);
+        if (webUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         userInfoService.updateUserStatus(userId, status);
         return getSuccessResponseVO(null);
     }
 
-    @RequestMapping("/updateUserSpace")
+    @PostMapping("/updateUserSpace")
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
-    public ResponseVO updateUserSpace(@VerifyParam(required = true) String userId, @VerifyParam(required = true) Integer changeSpace) {
+    public ResponseVO updateUserSpace(@VerifyParam(required = true) String userId, @VerifyParam(required = true) Integer changeSpace, HttpSession session) {
+        SessionWebUserDto webUserDto = getUserInfoFromSession(session);
+        if (webUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         userInfoService.changeUserSpace(userId, changeSpace);
         return getSuccessResponseVO(null);
     }
@@ -83,7 +101,7 @@ public class AdminController extends CommonFileController {
      * @param query
      * @return
      */
-    @RequestMapping("/loadFileList")
+    @RequestMapping(value = "/loadFileList", method = {RequestMethod.GET, RequestMethod.POST})
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
     public ResponseVO loadDataList(FileInfoQuery query) {
         query.setOrderBy("last_update_time desc");
@@ -93,7 +111,7 @@ public class AdminController extends CommonFileController {
         return getSuccessResponseVO(resultVO);
     }
 
-    @RequestMapping("/getFolderInfo")
+    @RequestMapping(value = "/getFolderInfo", method = {RequestMethod.GET, RequestMethod.POST})
     @GlobalInterceptor(checkLogin = false, checkAdmin = true, checkParams = true)
     public ResponseVO getFolderInfo(@VerifyParam(required = true) String path) {
         return super.getFolderInfo(path, null);
@@ -139,9 +157,13 @@ public class AdminController extends CommonFileController {
     }
 
 
-    @RequestMapping("/delFile")
+    @PostMapping("/delFile")
     @GlobalInterceptor(checkParams = true, checkAdmin = true)
-    public ResponseVO delFile(@VerifyParam(required = true) String fileIdAndUserIds) {
+    public ResponseVO delFile(@VerifyParam(required = true) String fileIdAndUserIds, HttpSession session) {
+        SessionWebUserDto webUserDto = getUserInfoFromSession(session);
+        if (webUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         String[] fileIdAndUserIdArray = fileIdAndUserIds.split(",");
         for (String fileIdAndUserId : fileIdAndUserIdArray) {
             String[] itemArray = fileIdAndUserId.split("_");

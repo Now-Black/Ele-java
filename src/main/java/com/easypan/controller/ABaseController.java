@@ -170,4 +170,13 @@ public class ABaseController {
             logger.error("读取视频信息失败", e);
         }
     }
+
+    protected <T> ResponseVO getErrorResponseVO(String msg, int code) {
+        ResponseVO<T> responseVO = new ResponseVO<>();
+        responseVO.setStatus(STATUC_ERROR);
+        responseVO.setCode(code);
+        responseVO.setInfo(msg);
+        responseVO.setData(null);
+        return responseVO;
+    }
 }

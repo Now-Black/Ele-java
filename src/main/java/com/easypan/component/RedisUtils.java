@@ -3,11 +3,14 @@ package com.easypan.component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Component("redisUtils")
@@ -15,6 +18,9 @@ public class RedisUtils<V> {
 
     @Resource
     private RedisTemplate<String, V> redisTemplate;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     private static final Logger logger = LoggerFactory.getLogger(RedisUtils.class);
 
@@ -74,5 +80,40 @@ public class RedisUtils<V> {
             logger.error("设置redisKey:{},value:{}失败", key, value);
             return false;
         }
+    }
+
+    /**
+     * 获取哈希表所有键值（热点统计专用）
+     */
+    public Map<String, String> getHashAll(String key) {
+        return stringRedisTemplate.<String, String>opsForHash().entries(key);
+    }
+
+    /**
+     * 获取ZSet倒序区间（置顶内容专用）
+     */
+    public Set<String> getZSetRevRange(String key, long start, long end) {
+        return stringRedisTemplate.opsForZSet().reverseRange(key, start, end);
+    }
+
+    /**
+     * 获取ZSet中某个成员的分数
+     */
+    public Double getZSetScore(String key, String member) {
+        return stringRedisTemplate.opsForZSet().score(key, member);
+    }
+
+    /**
+     * 添加ZSet成员
+     */
+    public void addZSet(String key, String member, double score) {
+        stringRedisTemplate.opsForZSet().add(key, member, score);
+    }
+
+    /**
+     * 移除ZSet成员
+     */
+    public void removeZSet(String key, String member) {
+        stringRedisTemplate.opsForZSet().remove(key, member);
     }
 }

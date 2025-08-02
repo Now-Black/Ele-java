@@ -17,8 +17,11 @@ import com.easypan.utils.StringTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -62,7 +65,7 @@ public class AccountController extends ABaseController {
      * @param type
      * @throws IOException
      */
-    @RequestMapping(value = "/checkCode")
+    @GetMapping("/checkCode")
     public void checkCode(HttpServletResponse response, HttpSession session, Integer type) throws
             IOException {
         CreateImageCode vCode = new CreateImageCode(130, 38, 5, 10);
@@ -110,7 +113,7 @@ public class AccountController extends ABaseController {
      * @param: [session, email, nickName, password, checkCode, emailCode]
      * @return: com.easypan.entity.vo.ResponseVO
      */
-    @RequestMapping("/register")
+    @PostMapping("/register")
     @GlobalInterceptor(checkLogin = false, checkParams = true)
     public ResponseVO register(HttpSession session,
                                @VerifyParam(required = true, regex = VerifyRegexEnum.EMAIL, max = 150) String email,
@@ -136,7 +139,7 @@ public class AccountController extends ABaseController {
      * @param: [session, request, email, password, checkCode]
      * @return: com.easypan.entity.vo.ResponseVO
      */
-    @RequestMapping("/login")
+    @PostMapping("/login")
     @GlobalInterceptor(checkLogin = false, checkParams = true)
     public ResponseVO login(HttpSession session, HttpServletRequest request,
                             @VerifyParam(required = true) String email,
@@ -172,7 +175,7 @@ public class AccountController extends ABaseController {
         }
     }
 
-    @RequestMapping("/getAvatar/{userId}")
+    @GetMapping("/getAvatar/{userId}")
     @GlobalInterceptor(checkLogin = false, checkParams = true)
     public void getAvatar(HttpServletResponse response, @VerifyParam(required = true) @PathVariable("userId") String userId) {
         String avatarFolderName = Constants.FILE_FOLDER_FILE + Constants.FILE_FOLDER_AVATAR_NAME;
@@ -209,10 +212,13 @@ public class AccountController extends ABaseController {
         }
     }
 
-    @RequestMapping("/getUserInfo")
+    @RequestMapping(value = "/getUserInfo", method = {RequestMethod.GET, RequestMethod.POST})
     @GlobalInterceptor
-    public ResponseVO getUserInfo(HttpSession session) {
+    public ResponseVO getUserInfo(HttpSession session, HttpServletRequest request) {
         SessionWebUserDto sessionWebUserDto = getUserInfoFromSession(session);
+        if (sessionWebUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         return getSuccessResponseVO(sessionWebUserDto);
     }
 
@@ -223,13 +229,13 @@ public class AccountController extends ABaseController {
         return getSuccessResponseVO(redisComponent.getUserSpaceUse(sessionWebUserDto.getUserId()));
     }
 
-    @RequestMapping("/logout")
+    @GetMapping("/logout")
     public ResponseVO logout(HttpSession session) {
         session.invalidate();
         return getSuccessResponseVO(null);
     }
 
-    @RequestMapping("/updateUserAvatar")
+    @PostMapping("/updateUserAvatar")
     @GlobalInterceptor
     public ResponseVO updateUserAvatar(HttpSession session, MultipartFile avatar) {
         SessionWebUserDto webUserDto = getUserInfoFromSession(session);
@@ -253,7 +259,7 @@ public class AccountController extends ABaseController {
         return getSuccessResponseVO(null);
     }
 
-    @RequestMapping("/updatePassword")
+    @PostMapping("/updatePassword")
     @GlobalInterceptor(checkParams = true)
     public ResponseVO updatePassword(HttpSession session,
                                      @VerifyParam(required = true, regex = VerifyRegexEnum.PASSWORD, min = 8, max = 18) String password) {

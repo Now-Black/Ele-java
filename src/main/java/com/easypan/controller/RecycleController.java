@@ -9,7 +9,10 @@ import com.easypan.entity.vo.FileInfoVO;
 import com.easypan.entity.vo.PaginationResultVO;
 import com.easypan.entity.vo.ResponseVO;
 import com.easypan.service.FileInfoService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -25,7 +28,7 @@ public class RecycleController extends ABaseController {
     /**
      * 根据条件分页查询
      */
-    @RequestMapping("/loadRecycleList")
+    @RequestMapping(value = "/loadRecycleList", method = {RequestMethod.GET, RequestMethod.POST})
     @GlobalInterceptor(checkParams = true)
     public ResponseVO loadRecycleList(HttpSession session, Integer pageNo, Integer pageSize) {
         FileInfoQuery query = new FileInfoQuery();
@@ -38,10 +41,13 @@ public class RecycleController extends ABaseController {
         return getSuccessResponseVO(convert2PaginationVO(result, FileInfoVO.class));
     }
 
-    @RequestMapping("/recoverFile")
+    @PostMapping("/recoverFile")
     @GlobalInterceptor(checkParams = true)
     public ResponseVO recoverFile(HttpSession session, @VerifyParam(required = true) String fileIds) {
         SessionWebUserDto webUserDto = getUserInfoFromSession(session);
+        if (webUserDto == null) {
+            return getErrorResponseVO("未登录或会话已失效", 901);
+        }
         fileInfoService.recoverFileBatch(webUserDto.getUserId(), fileIds);
         return getSuccessResponseVO(null);
     }

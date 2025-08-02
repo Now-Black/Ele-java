@@ -100,3 +100,18 @@ CREATE TABLE `user_info` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户信息';
 
 INSERT INTO `user_info` VALUES ('3178033358', '测试账号', 'test@qq.com', null, null, '47ec2dd791e31e2ef2076caf64ed9b3d', null, '2023-04-28 13:54:01', '1', '238302835', '10737418240');
+
+-- 热点内容排行榜测试数据
+INSERT INTO `file_info` (`file_id`, `user_id`, `file_name`, `del_flag`) VALUES
+('10001', '3178033358', '电力公司年度报告.pdf', 2),
+('10002', '3178033358', '变电站巡检视频.mp4', 2),
+('10003', '3178033358', '电网运行数据.xlsx', 2);
+
+-- 置顶内容排行榜测试数据
+INSERT INTO `file_info` (`file_id`, `user_id`, `file_name`, `del_flag`) VALUES
+('20001', '3178033358', '电力安全规范.docx', 2),
+('20002', '3178033358', '应急预案.pptx', 2);
+
+-- Redis热点内容（stat:hot:file）和置顶内容（stat:top:file）可用如下命令模拟：
+-- HSET stat:hot:file 10001 120 10002 98 10003 75
+-- ZADD stat:top:file 99 20001 88 20002

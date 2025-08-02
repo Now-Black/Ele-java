@@ -13,6 +13,8 @@ import com.easypan.mappers.UserInfoMapper;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.util.Map;
+import java.util.Set;
 
 @Component("redisComponent")
 public class RedisComponent {
@@ -119,5 +121,25 @@ public class RedisComponent {
         }
 
         return 0L;
+    }
+
+    public Map<String, String> getHashAll(String key) {
+        return redisUtils.getHashAll(key);
+    }
+
+    public Set<String> getZSetRevRange(String key, long start, long end) {
+        return redisUtils.getZSetRevRange(key, start, end);
+    }
+
+    public Double getZSetScore(String key, String member) {
+        return redisUtils.getZSetScore(key, member);
+    }
+
+    public void addZSet(String key, String member, double score) {
+        redisUtils.addZSet(key, member, score);
+    }
+
+    public void removeZSet(String key, String member) {
+        redisUtils.removeZSet(key, member);
     }
 }
