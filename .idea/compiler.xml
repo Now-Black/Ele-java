@@ -7,12 +7,14 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="easypan-java" />
+        <module name="Ele-java" />
         <module name="easypan" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="Ele-java" options="-parameters" />
       <module name="easypan" options="-parameters" />
       <module name="easypan-java" options="-parameters" />
     </option>
