@@ -1,0 +1,536 @@
+package com.easypan.TA.Service.impl;
+
+import com.easypan.TA.Service.TaDataPersistenceService;
+import com.easypan.TA.Validator.ValidationResult;
+import com.easypan.TA.Utils.SafeBatchProcessor;
+import com.easypan.entity.po.TaFileMonitor;
+import com.easypan.entity.po.TaProductMonitor;
+import com.easypan.entity.po.TaProduct;
+import com.easypan.TA.Model.ParsedData;
+import com.easypan.TA.Model.ProductInfo;
+import com.easypan.TA.Validator.ValidationReport;
+import com.easypan.TA.Model.ValidationError;
+import com.easypan.mappers.TaFileMonitorMapper;
+import com.easypan.mappers.TaProductMonitorMapper;
+import com.easypan.mappers.TaProductMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * TA数据入库服务实现类
+ */
+@Slf4j
+@Service
+public class TaDataPersistenceServiceImpl implements TaDataPersistenceService {
+    
+    @Resource
+    private TaFileMonitorMapper taFileMonitorMapper;
+    
+    @Resource
+    private TaProductMonitorMapper taProductMonitorMapper;
+    
+    // 批量操作配置常量
+    private static final int DEFAULT_BATCH_SIZE = 1000;  // 默认批次大小
+    private static final int MAX_BATCH_SIZE = 5000;      // 最大批次大小
+    private static final int MIN_BATCH_SIZE = 100;       // 最小批次大小
+    
+    @Resource
+    private TaProductMapper taProductMapper;
+    
+    @Resource
+    private SafeBatchProcessor safeBatchProcessor;
+    
+    // ========== 安全的分批处理方法 ==========
+    
+    /**
+     * 安全的分批插入产品监控记录 - 使用独立事务
+     */
+    private void safeBatchInsertProductMonitors(List<TaProductMonitor> productMonitors) {
+        if (productMonitors == null || productMonitors.isEmpty()) {
+            return;
+        }
+        
+        // 使用SafeBatchProcessor处理，每个批次都是独立事务
+        int totalProcessed = safeBatchProcessor.processBatch(
+            productMonitors,
+            this::insertProductMonitorBatch,
+            "产品监控记录插入"
+        );
+        
+        log.info("产品监控记录分批插入完成: 总处理数量={}", totalProcessed);
+    }
+    
+    /**
+     * 单批次插入产品监控记录 - 独立事务
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, 
+                   timeout = 300, 
+                   rollbackFor = Exception.class)
+    public Integer insertProductMonitorBatch(List<TaProductMonitor> batch) {
+        try {
+            return taProductMonitorMapper.insertBatch(batch);
+        } catch (Exception e) {
+            log.error("产品监控记录批次插入失败: 批次大小={}", batch.size(), e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 安全的分批插入产品数据
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void safeBatchInsertProducts(List<TaProduct> products) {
+        if (products == null || products.isEmpty()) {
+            return;
+        }
+        
+        int totalSize = products.size();
+        int batchSize = calculateOptimalBatchSize(totalSize);
+        
+        log.info("开始分批插入产品数据: 总数量={}, 批次大小={}, 预计批次数={}", 
+            totalSize, batchSize, (totalSize + batchSize - 1) / batchSize);
+        
+        try {
+            for (int i = 0; i < totalSize; i += batchSize) {
+                int endIndex = Math.min(i + batchSize, totalSize);
+                List<TaProduct> batch = products.subList(i, endIndex);
+                
+                int currentBatch = (i / batchSize) + 1;
+                int totalBatches = (totalSize + batchSize - 1) / batchSize;
+                
+                log.debug("插入产品数据批次 {}/{}: 当前批次大小={}", 
+                    currentBatch, totalBatches, batch.size());
+                
+                int insertedCount = taProductMapper.insertOrUpdateBatch(batch);
+                
+                // 注意：insertOrUpdateBatch可能返回更新+插入的总数，这里做兼容处理
+                if (insertedCount < batch.size()) {
+                    log.warn("批次 {}/{} 可能包含更新操作: 预期操作{}条，实际操作{}条", 
+                        currentBatch, totalBatches, batch.size(), insertedCount);
+                }
+                
+                if (currentBatch % 10 == 0) {
+                    log.info("已完成 {}/{} 批次的产品数据插入", currentBatch, totalBatches);
+                }
+            }
+            
+            log.info("产品数据分批插入完成: 总数量={}", totalSize);
+            
+        } catch (Exception e) {
+            log.error("产品数据分批插入失败: 总数量={}", totalSize, e);
+            throw new RuntimeException("产品数据批量插入失败", e);
+        }
+    }
+    
+    /**
+     * 计算最优批次大小
+     */
+    private int calculateOptimalBatchSize(int totalSize) {
+        if (totalSize <= MIN_BATCH_SIZE) {
+            return totalSize;
+        }
+        
+        if (totalSize <= DEFAULT_BATCH_SIZE) {
+            return DEFAULT_BATCH_SIZE;
+        }
+        
+        // 对于大数据量，动态调整批次大小
+        if (totalSize <= 10000) {
+            return DEFAULT_BATCH_SIZE;
+        } else if (totalSize <= 50000) {
+            return 2000;
+        } else if (totalSize <= 100000) {
+            return 3000;
+        } else {
+            return MAX_BATCH_SIZE;
+        }
+    }
+    
+    /**
+     * 安全的分批更新产品校验状态
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void safeBatchUpdateProductMonitors(List<TaProductMonitor> productMonitors) {
+        if (productMonitors == null || productMonitors.isEmpty()) {
+            return;
+        }
+        
+        int totalSize = productMonitors.size();
+        int batchSize = calculateOptimalBatchSize(totalSize);
+        
+        log.info("开始分批更新产品监控状态: 总数量={}, 批次大小={}", totalSize, batchSize);
+        
+        try {
+            for (int i = 0; i < totalSize; i += batchSize) {
+                int endIndex = Math.min(i + batchSize, totalSize);
+                List<TaProductMonitor> batch = productMonitors.subList(i, endIndex);
+                
+                int updatedCount = taProductMonitorMapper.batchUpdateValidationStatus(batch);
+                
+                if (updatedCount != batch.size()) {
+                    log.warn("批次更新异常: 预期更新{}条，实际更新{}条", batch.size(), updatedCount);
+                }
+            }
+            
+            log.info("产品监控状态分批更新完成: 总数量={}", totalSize);
+            
+        } catch (Exception e) {
+            log.error("产品监控状态分批更新失败: 总数量={}", totalSize, e);
+            throw new RuntimeException("产品监控状态批量更新失败", e);
+        }
+    }
+    
+    // ========== 文件监控相关 ==========
+    
+    @Override
+    @Transactional
+    public TaFileMonitor createFileMonitor(String batchId, String fileName, String fileType, String filePath, Long fileSize) {
+        TaFileMonitor fileMonitor = new TaFileMonitor();
+        fileMonitor.setBatchId(batchId);
+        fileMonitor.setFileName(fileName);
+        fileMonitor.setFileType(fileType);
+        fileMonitor.setFilePath(filePath);
+        fileMonitor.setFileSize(fileSize);
+        fileMonitor.setTotalRecords(0);
+        fileMonitor.setValidRecords(0);
+        fileMonitor.setInvalidRecords(0);
+        fileMonitor.setParseStatus("PENDING");
+        fileMonitor.setParseTime(0L);
+        fileMonitor.setValidationStatus("PENDING");
+        
+        taFileMonitorMapper.insert(fileMonitor);
+        log.info("创建文件监控记录: batchId={}, fileName={}, fileType={}", batchId, fileName, fileType);
+        
+        return fileMonitor;
+    }
+    
+    @Override
+    @Transactional
+    public void updateFileParseStatus(String batchId, String fileType, String parseStatus,
+                                    Long parseTime, Integer totalRecords, Integer validRecords,
+                                    Integer invalidRecords, String errorMessage) {
+        
+        TaFileMonitor fileMonitor = taFileMonitorMapper.selectByBatchIdAndFileType(batchId, fileType);
+        if (fileMonitor != null) {
+            taFileMonitorMapper.updateParseStatus(
+                fileMonitor.getId(), parseStatus, parseTime, 
+                totalRecords, validRecords, invalidRecords, errorMessage
+            );
+            
+            log.info("更新文件解析状态: batchId={}, fileType={}, status={}, totalRecords={}", 
+                batchId, fileType, parseStatus, totalRecords);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void updateFileValidationStatus(String batchId, String fileType, String validationStatus, String errorMessage) {
+        TaFileMonitor fileMonitor = taFileMonitorMapper.selectByBatchIdAndFileType(batchId, fileType);
+        if (fileMonitor != null) {
+            taFileMonitorMapper.updateValidationStatus(fileMonitor.getId(), validationStatus, errorMessage);
+            
+            log.info("更新文件校验状态: batchId={}, fileType={}, status={}", 
+                batchId, fileType, validationStatus);
+        }
+    }
+    
+    @Override
+    public List<TaFileMonitor> getFileMonitorsByBatch(String batchId) {
+        return taFileMonitorMapper.selectByBatchId(batchId);
+    }
+    
+    // ========== 产品监控相关 ==========
+    
+    @Override
+    @Transactional
+    public void createProductMonitors(String batchId, ParsedData parsedData, String sourceFile) {
+        List<TaProductMonitor> productMonitors = new ArrayList<>();
+        
+        for (ProductInfo product : parsedData.getAllProducts()) {
+            TaProductMonitor monitor = new TaProductMonitor();
+            monitor.setBatchId(batchId);
+            monitor.setProductCode(product.getProductCode());
+            monitor.setProductName(product.getProductName());
+            monitor.setProductType(product.getProductType());
+            monitor.setParentCode(product.getParentCode());
+            monitor.setSourceFile(sourceFile);
+            monitor.setValidationStatus("PENDING");
+            monitor.setFieldValidation("PENDING");
+            monitor.setBusinessValidation("PENDING");
+            monitor.setCrossValidation("PENDING");
+            monitor.setErrorCount(0);
+            monitor.setWarningCount(0);
+            monitor.setProcessed(false);
+            
+            productMonitors.add(monitor);
+        }
+        
+        if (!productMonitors.isEmpty()) {
+            // 使用安全的分批插入方法
+            safeBatchInsertProductMonitors(productMonitors);
+            log.info("创建产品监控记录完成: batchId={}, 产品数量={}, 来源文件={}", 
+                batchId, productMonitors.size(), sourceFile);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void updateProductValidationStatus(String batchId, ValidationReport validationReport) {
+        // 统计各产品的错误和警告数量
+        Map<String, Long> errorCounts = validationReport.getAllErrors().stream()
+            .filter(error -> StringUtils.isNotBlank(error.getProductCode()))
+            .collect(Collectors.groupingBy(ValidationError::getProductCode, Collectors.counting()));
+        
+        Map<String, Long> warningCounts = validationReport.getAllErrors().stream()
+            .filter(error -> StringUtils.isNotBlank(error.getProductCode()) && 
+                           "WARNING".equals(error.getSeverity()))
+            .collect(Collectors.groupingBy(ValidationError::getProductCode, Collectors.counting()));
+        
+        // 更新每个产品的监控状态
+        List<TaProductMonitor> existingMonitors = taProductMonitorMapper.selectByBatchId(batchId);
+        List<TaProductMonitor> updatedMonitors = new ArrayList<>();
+        
+        for (TaProductMonitor monitor : existingMonitors) {
+            String productCode = monitor.getProductCode();
+            Long errorCount = errorCounts.getOrDefault(productCode, 0L);
+            Long warningCount = warningCounts.getOrDefault(productCode, 0L);
+            
+            // 根据错误数量确定校验状态
+            String validationStatus = "SUCCESS";
+            if (errorCount > 0) {
+                // 检查是否因母产品失败而跳过
+                boolean isSkipped = validationReport.getAllErrors().stream()
+                    .anyMatch(error -> productCode.equals(error.getProductCode()) && 
+                             "PARENT_VALIDATION_FAILED".equals(error.getErrorCode()));
+                validationStatus = isSkipped ? "SKIPPED" : "FAILED";
+                
+                if (isSkipped) {
+                    monitor.setSkipReason("PARENT_FAILED");
+                }
+            }
+            
+            monitor.setValidationStatus(validationStatus);
+            monitor.setErrorCount(errorCount.intValue());
+            monitor.setWarningCount(warningCount.intValue());
+            
+            // 设置各层校验结果
+            monitor.setFieldValidation(getLayerValidationStatus(validationReport, productCode, 1));
+            monitor.setBusinessValidation(getLayerValidationStatus(validationReport, productCode, 2));
+            monitor.setCrossValidation(getLayerValidationStatus(validationReport, productCode, 3));
+            
+            updatedMonitors.add(monitor);
+        }
+        
+        if (!updatedMonitors.isEmpty()) {
+            // 使用安全的分批更新方法
+            safeBatchUpdateProductMonitors(updatedMonitors);
+            log.info("更新产品校验状态完成: batchId={}, 产品数量={}", batchId, updatedMonitors.size());
+        }
+    }
+    
+    /**
+     * 获取指定层级的校验状态
+     */
+    private String getLayerValidationStatus(ValidationReport report, String productCode, int layer) {
+        // 简化实现：基于整体校验结果判断
+        Map<Integer, ValidationResult> layerResults = report.getLayerResults();
+        ValidationResult layerResult = layerResults.get(layer);
+        
+        if (layerResult == null) {
+            return "PENDING";
+        }
+        
+        // 检查该层是否有该产品的错误
+        boolean hasError = layerResult.getErrors().stream()
+            .anyMatch(error -> productCode.equals(error.getProductCode()));
+        
+        return hasError ? "FAILED" : "SUCCESS";
+    }
+    
+    @Override
+    @Transactional
+    public void markProductsAsProcessed(String batchId, List<String> productCodes) {
+        if (!productCodes.isEmpty()) {
+            taProductMonitorMapper.markAsProcessed(batchId, productCodes);
+            log.info("标记产品为已处理: batchId={}, 产品数量={}", batchId, productCodes.size());
+        }
+    }
+    
+    @Override
+    public List<TaProductMonitor> getUnprocessedProducts(String batchId) {
+        return taProductMonitorMapper.selectUnprocessed(batchId);
+    }
+    
+    // ========== 产品数据相关 ==========
+    
+    @Override
+    @Transactional
+    public void saveAllProducts(String batchId, ParsedData parsedData) {
+        List<TaProduct> products = convertToTaProducts(parsedData.getAllProducts(), batchId);
+        
+        if (!products.isEmpty()) {
+            // 使用安全的分批插入方法
+            safeBatchInsertProducts(products);
+            log.info("保存所有产品数据完成: batchId={}, 产品数量={}", batchId, products.size());
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void saveParentProducts(String batchId, List<ProductInfo> parentProducts) {
+        List<TaProduct> products = convertToTaProducts(parentProducts, batchId);
+        
+        if (!products.isEmpty()) {
+            // 使用安全的分批插入方法
+            safeBatchInsertProducts(products);
+            log.info("保存母产品数据完成: batchId={}, 产品数量={}", batchId, products.size());
+        }
+    }
+    
+    @Override
+    @Transactional
+    public void saveChildProducts(String batchId, List<ProductInfo> childProducts) {
+        List<TaProduct> products = convertToTaProducts(childProducts, batchId);
+        
+        if (!products.isEmpty()) {
+            // 使用安全的分批插入方法
+            safeBatchInsertProducts(products);
+            log.info("保存子产品数据完成: batchId={}, 产品数量={}", batchId, products.size());
+        }
+    }
+    
+    /**
+     * 将ProductInfo转换为TaProduct
+     */
+    private List<TaProduct> convertToTaProducts(List<ProductInfo> productInfos, String batchId) {
+        List<TaProduct> products = new ArrayList<>();
+        
+        for (ProductInfo productInfo : productInfos) {
+            TaProduct product = new TaProduct();
+            product.setProductCode(productInfo.getProductCode());
+            product.setProductName(productInfo.getProductName());
+            product.setProductType(productInfo.getProductType());
+            product.setParentCode(productInfo.getParentCode());
+            product.setStatus(productInfo.getStatus());
+            product.setRiskLevel(productInfo.getRiskLevel());
+            product.setCurrency(productInfo.getCurrency());
+            product.setInvestmentType(productInfo.getInvestmentType());
+            product.setDescription(productInfo.getDescription());
+            product.setMinAmount(productInfo.getMinAmount());
+            product.setMaxAmount(productInfo.getMaxAmount());
+            product.setCurrentAmount(productInfo.getCurrentAmount());
+            product.setExpectedReturn(productInfo.getExpectedReturn());
+            product.setTermDays(productInfo.getTermDays());
+            product.setMaxInvestors(productInfo.getMaxInvestors());
+            product.setEstablishDate(productInfo.getEstablishDate());
+            product.setMaturityDate(productInfo.getMaturityDate());
+            product.setIssueDate(productInfo.getIssueDate());
+            product.setLastUpdateBatch(batchId);
+            
+            products.add(product);
+        }
+        
+        return products;
+    }
+    
+    @Override
+    public TaProduct getProductByCode(String productCode) {
+        return taProductMapper.selectByProductCode(productCode);
+    }
+    
+    @Override
+    public List<TaProduct> getAllParentProducts() {
+        return taProductMapper.selectAllParentProducts();
+    }
+    
+    @Override
+    public List<TaProduct> getChildProductsByParent(String parentCode) {
+        return taProductMapper.selectChildrenByParentCode(parentCode);
+    }
+    
+    // ========== 批量处理 ==========
+    
+    @Override
+    @Transactional
+    public void performFullDataPersistence(String batchId, String cpdmFilePath, String jycsFilePath,
+                                         ParsedData cpdmData, ParsedData jycsData,
+                                         ValidationReport validationReport) {
+        
+        log.info("开始完整数据入库流程: batchId={}", batchId);
+        
+        try {
+            // 1. 创建文件监控记录
+            if (StringUtils.isNotBlank(cpdmFilePath)) {
+                createFileMonitor(batchId, extractFileName(cpdmFilePath), "CPDM", cpdmFilePath, 0L);
+                updateFileParseStatus(batchId, "CPDM", "SUCCESS", 0L, 
+                    cpdmData.getAllProducts().size(), cpdmData.getAllProducts().size(), 0, null);
+            }
+            
+            if (StringUtils.isNotBlank(jycsFilePath)) {
+                createFileMonitor(batchId, extractFileName(jycsFilePath), "JYCS", jycsFilePath, 0L);
+                updateFileParseStatus(batchId, "JYCS", "SUCCESS", 0L, 
+                    jycsData.getAllProducts().size(), jycsData.getAllProducts().size(), 0, null);
+            }
+            
+            // 2. 创建产品监控记录
+            createProductMonitors(batchId, cpdmData, "CPDM");
+            if (jycsData != null && !jycsData.getAllProducts().isEmpty()) {
+                // 更新已存在的产品监控记录，标记为来自BOTH
+                updateProductMonitorsForJycs(batchId, jycsData);
+            }
+            
+            // 3. 更新校验状态
+            updateProductValidationStatus(batchId, validationReport);
+            
+            // 4. 保存产品数据
+            saveAllProducts(batchId, cpdmData);
+            
+            // 5. 更新文件校验状态
+            String overallStatus = validationReport.isSuccess() ? "SUCCESS" : "FAILED";
+            updateFileValidationStatus(batchId, "CPDM", overallStatus, null);
+            if (StringUtils.isNotBlank(jycsFilePath)) {
+                updateFileValidationStatus(batchId, "JYCS", overallStatus, null);
+            }
+            
+            log.info("完整数据入库流程完成: batchId={}", batchId);
+            
+        } catch (Exception e) {
+            log.error("完整数据入库流程失败: batchId={}", batchId, e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 更新JYCS相关的产品监控记录
+     */
+    private void updateProductMonitorsForJycs(String batchId, ParsedData jycsData) {
+        for (ProductInfo product : jycsData.getAllProducts()) {
+            TaProductMonitor existing = taProductMonitorMapper.selectByBatchIdAndProductCode(
+                batchId, product.getProductCode());
+            if (existing != null) {
+                existing.setSourceFile("BOTH");
+                taProductMonitorMapper.updateById(existing.getId(), existing);
+            }
+        }
+    }
+    
+    /**
+     * 从文件路径提取文件名
+     */
+    private String extractFileName(String filePath) {
+        if (StringUtils.isBlank(filePath)) {
+            return "";
+        }
+        int lastSeparatorIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+        return lastSeparatorIndex >= 0 ? filePath.substring(lastSeparatorIndex + 1) : filePath;
+    }
+}

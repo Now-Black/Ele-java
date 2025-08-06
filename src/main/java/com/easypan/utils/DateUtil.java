@@ -1,7 +1,7 @@
 package com.easypan.utils;
 
 
-import com.easypan.entity.enums.DateTimePatternEnum;
+
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -54,7 +54,5 @@ public class DateUtil {
         return calendar.getTime();
     }
 
-    public static void main(String[] args) {
-        System.out.println(format(getAfterDate(1), DateTimePatternEnum.YYYY_MM_DD_HH_MM_SS.getPattern()));
-    }
+
 }

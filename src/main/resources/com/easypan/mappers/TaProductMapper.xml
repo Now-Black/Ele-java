@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.easypan.mappers.TaProductMapper">
+    
+    <!-- 基础字段映射 -->
+    <sql id="base_column_list">
+        id, product_code, product_name, product_type, parent_code, status,
+        risk_level, currency, investment_type, description, min_amount, max_amount,
+        current_amount, expected_return, term_days, max_investors, establish_date,
+        maturity_date, issue_date, last_update_batch, create_time, update_time
+    </sql>
+    
+    <!-- 批量插入字段列表 -->
+    <sql id="batch_insert_columns">
+        product_code, product_name, product_type, parent_code, status,
+        risk_level, currency, investment_type, description, min_amount, max_amount,
+        current_amount, expected_return, term_days, max_investors, establish_date,
+        maturity_date, issue_date, last_update_batch
+    </sql>
+    
+    <!-- 结果映射 -->
+    <resultMap id="base_result_map" type="com.easypan.entity.po.TaProduct">
+        <id property="id" column="id"/>
+        <result property="productCode" column="product_code"/>
+        <result property="productName" column="product_name"/>
+        <result property="productType" column="product_type"/>
+        <result property="parentCode" column="parent_code"/>
+        <result property="status" column="status"/>
+        <result property="riskLevel" column="risk_level"/>
+        <result property="currency" column="currency"/>
+        <result property="investmentType" column="investment_type"/>
+        <result property="description" column="description"/>
+        <result property="minAmount" column="min_amount"/>
+        <result property="maxAmount" column="max_amount"/>
+        <result property="currentAmount" column="current_amount"/>
+        <result property="expectedReturn" column="expected_return"/>
+        <result property="termDays" column="term_days"/>
+        <result property="maxInvestors" column="max_investors"/>
+        <result property="establishDate" column="establish_date"/>
+        <result property="maturityDate" column="maturity_date"/>
+        <result property="issueDate" column="issue_date"/>
+        <result property="lastUpdateBatch" column="last_update_batch"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+    
+    <!-- 根据产品代码查询 -->
+    <select id="selectByProductCode" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_product
+        WHERE product_code = #{productCode}
+        LIMIT 1
+    </select>
+    
+    <!-- 根据产品代码列表查询 -->
+    <select id="selectByProductCodes" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_product
+        WHERE product_code IN
+        <foreach collection="productCodes" item="productCode" open="(" close=")" separator=",">
+            #{productCode}
+        </foreach>
+    </select>
+    
+    <!-- 根据母产品代码查询子产品 -->
+    <select id="selectChildrenByParentCode" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_product
+        WHERE parent_code = #{parentCode}
+        ORDER BY product_code
+    </select>
+    
+    <!-- 查询所有母产品 -->
+    <select id="selectAllParentProducts" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_product
+        WHERE parent_code IS NULL OR parent_code = ''
+        ORDER BY product_code
+    </select>
+    
+    <!-- 根据产品类型查询 -->
+    <select id="selectByProductType" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_product
+        WHERE product_type = #{productType}
+        ORDER BY product_code
+    </select>
+    
+    <!-- 批量插入产品 -->
+    <insert id="insertBatch" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ta_product (<include refid="batch_insert_columns"/>)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.productCode}, #{item.productName}, #{item.productType}, #{item.parentCode},
+                #{item.status}, #{item.riskLevel}, #{item.currency}, #{item.investmentType},
+                #{item.description}, #{item.minAmount}, #{item.maxAmount}, #{item.currentAmount},
+                #{item.expectedReturn}, #{item.termDays}, #{item.maxInvestors}, #{item.establishDate},
+                #{item.maturityDate}, #{item.issueDate}, #{item.lastUpdateBatch}
+            )
+        </foreach>
+    </insert>
+    
+    <!-- 批量更新产品 -->
+    <update id="updateBatch" parameterType="java.util.List">
+        <foreach collection="list" item="item" separator=";">
+            UPDATE ta_product SET
+                product_name = #{item.productName},
+                product_type = #{item.productType},
+                parent_code = #{item.parentCode},
+                status = #{item.status},
+                risk_level = #{item.riskLevel},
+                currency = #{item.currency},
+                investment_type = #{item.investmentType},
+                description = #{item.description},
+                min_amount = #{item.minAmount},
+                max_amount = #{item.maxAmount},
+                current_amount = #{item.currentAmount},
+                expected_return = #{item.expectedReturn},
+                term_days = #{item.termDays},
+                max_investors = #{item.maxInvestors},
+                establish_date = #{item.establishDate},
+                maturity_date = #{item.maturityDate},
+                issue_date = #{item.issueDate},
+                last_update_batch = #{item.lastUpdateBatch},
+                update_time = NOW()
+            WHERE id = #{item.id}
+        </foreach>
+    </update>
+    
+    <!-- 批量插入或更新产品 -->
+    <insert id="insertOrUpdateBatch" parameterType="java.util.List">
+        INSERT INTO ta_product (<include refid="batch_insert_columns"/>)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.productCode}, #{item.productName}, #{item.productType}, #{item.parentCode},
+                #{item.status}, #{item.riskLevel}, #{item.currency}, #{item.investmentType},
+                #{item.description}, #{item.minAmount}, #{item.maxAmount}, #{item.currentAmount},
+                #{item.expectedReturn}, #{item.termDays}, #{item.maxInvestors}, #{item.establishDate},
+                #{item.maturityDate}, #{item.issueDate}, #{item.lastUpdateBatch}
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            product_name = VALUES(product_name),
+            product_type = VALUES(product_type),
+            parent_code = VALUES(parent_code),
+            status = VALUES(status),
+            risk_level = VALUES(risk_level),
+            currency = VALUES(currency),
+            investment_type = VALUES(investment_type),
+            description = VALUES(description),
+            min_amount = VALUES(min_amount),
+            max_amount = VALUES(max_amount),
+            current_amount = VALUES(current_amount),
+            expected_return = VALUES(expected_return),
+            term_days = VALUES(term_days),
+            max_investors = VALUES(max_investors),
+            establish_date = VALUES(establish_date),
+            maturity_date = VALUES(maturity_date),
+            issue_date = VALUES(issue_date),
+            last_update_batch = VALUES(last_update_batch),
+            update_time = NOW()
+    </insert>
+    
+    <!-- 删除指定批次之外的产品数据 -->
+    <delete id="deleteExceptBatch">
+        DELETE FROM ta_product
+        WHERE last_update_batch != #{batchId}
+    </delete>
+
+</mapper>

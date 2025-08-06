@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.easypan.mappers.TaFileMonitorMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="base_result_map" type="com.easypan.entity.po.TaFileMonitor">
+        <id column="id" property="id"/>
+        <result column="batch_id" property="batchId"/>
+        <result column="file_name" property="fileName"/>
+        <result column="file_type" property="fileType"/>
+        <result column="file_path" property="filePath"/>
+        <result column="file_size" property="fileSize"/>
+        <result column="total_records" property="totalRecords"/>
+        <result column="valid_records" property="validRecords"/>
+        <result column="invalid_records" property="invalidRecords"/>
+        <result column="parse_status" property="parseStatus"/>
+        <result column="parse_time" property="parseTime"/>
+        <result column="validation_status" property="validationStatus"/>
+        <result column="error_message" property="errorMessage"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!-- 通用SQL片段 -->
+    <sql id="base_column_list">
+        id, batch_id, file_name, file_type, file_path, file_size,
+        total_records, valid_records, invalid_records, parse_status, parse_time,
+        validation_status, error_message, create_time, update_time
+    </sql>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.easypan.entity.po.TaFileMonitor" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ta_file_monitor (
+            batch_id, file_name, file_type, file_path, file_size,
+            total_records, valid_records, invalid_records, parse_status, parse_time,
+            validation_status, error_message
+        ) VALUES (
+            #{batchId}, #{fileName}, #{fileType}, #{filePath}, #{fileSize},
+            #{totalRecords}, #{validRecords}, #{invalidRecords}, #{parseStatus}, #{parseTime},
+            #{validationStatus}, #{errorMessage}
+        )
+    </insert>
+
+    <!-- 批量插入 -->
+    <insert id="insertBatch" parameterType="java.util.List">
+        INSERT INTO ta_file_monitor (
+            batch_id, file_name, file_type, file_path, file_size,
+            total_records, valid_records, invalid_records, parse_status, parse_time,
+            validation_status, error_message
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.batchId}, #{item.fileName}, #{item.fileType}, #{item.filePath}, #{item.fileSize},
+                #{item.totalRecords}, #{item.validRecords}, #{item.invalidRecords}, #{item.parseStatus}, #{item.parseTime},
+                #{item.validationStatus}, #{item.errorMessage}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 根据批次ID查询 -->
+    <select id="selectByBatchId" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_file_monitor
+        WHERE batch_id = #{batchId}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 根据批次ID和文件类型查询 -->
+    <select id="selectByBatchIdAndFileType" resultMap="base_result_map">
+        SELECT <include refid="base_column_list"/>
+        FROM ta_file_monitor
+        WHERE batch_id = #{batchId} AND file_type = #{fileType}
+        LIMIT 1
+    </select>
+
+    <!-- 更新解析状态 -->
+    <update id="updateParseStatus">
+        UPDATE ta_file_monitor SET
+            parse_status = #{parseStatus},
+            parse_time = #{parseTime},
+            total_records = #{totalRecords},
+            valid_records = #{validRecords},
+            invalid_records = #{invalidRecords},
+            error_message = #{errorMessage},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新校验状态 -->
+    <update id="updateValidationStatus">
+        UPDATE ta_file_monitor SET
+            validation_status = #{validationStatus},
+            error_message = #{errorMessage},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>
