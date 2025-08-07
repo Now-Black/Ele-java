@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easypan.mappers.ClientDailyIncomeMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="base_result_map" type="com.easypan.entity.po.ClientDailyIncome">
+        <result column="client_no" property="clientNo" />
+        <result column="asset_acc" property="assetAcc" />
+        <result column="ta_client" property="taClient" />
+        <result column="prd_code" property="prdCode" />
+        <result column="real_prd_code" property="realPrdCode" />
+        <result column="reg_date" property="regDate" />
+        <result column="allot_amt" property="allotAmt" />
+        <result column="redeem_amt" property="redeemAmt" />
+        <result column="div_income" property="divIncome" />
+        <result column="redeem_income" property="redeemIncome" />
+        <result column="force_add_amt" property="forceAddAmt" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="base_column_list">
+        client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date, 
+        allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+        create_time, update_time
+    </sql>
+
+    <!-- 通用查询条件 -->
+    <sql id="base_query_condition">
+        <if test="query.clientNo != null and query.clientNo != ''">
+            AND client_no = #{query.clientNo}
+        </if>
+        <if test="query.prdCode != null and query.prdCode != ''">
+            AND prd_code = #{query.prdCode}
+        </if>
+        <if test="query.regDate != null">
+            AND reg_date = #{query.regDate}
+        </if>
+        <if test="query.regDateStart != null">
+            AND reg_date >= #{query.regDateStart}
+        </if>
+        <if test="query.regDateEnd != null">
+            AND reg_date &lt;= #{query.regDateEnd}
+        </if>
+    </sql>
+
+    <!-- 通用查询条件及排序 -->
+    <sql id="query_condition">
+        <where>
+            <include refid="base_query_condition" />
+        </where>
+        <if test="query.orderBy != null">
+            ORDER BY ${query.orderBy}
+        </if>
+        <if test="query.simplePage != null">
+            LIMIT #{query.simplePage.start}, #{query.simplePage.end}
+        </if>
+    </sql>
+
+    <!-- 查询集合 -->
+    <select id="selectList" resultMap="base_result_map">
+        SELECT <include refid="base_column_list" /> FROM tbclientdlyincome <include refid="query_condition" />
+    </select>
+
+    <!-- 查询数量 -->
+    <select id="selectCount" resultType="java.lang.Integer">
+        SELECT COUNT(1) FROM tbclientdlyincome <include refid="query_condition" />
+    </select>
+
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.easypan.entity.po.ClientDailyIncome">
+        INSERT INTO tbclientdlyincome (
+            <include refid="base_column_list" />
+        ) VALUES (
+            #{bean.clientNo}, #{bean.assetAcc}, #{bean.taClient}, #{bean.prdCode}, 
+            #{bean.realPrdCode}, #{bean.regDate}, #{bean.allotAmt}, #{bean.redeemAmt}, 
+            #{bean.divIncome}, #{bean.redeemIncome}, #{bean.forceAddAmt}, 
+            NOW(), NOW()
+        )
+    </insert>
+
+    <!-- 插入或更新 -->
+    <insert id="insertOrUpdate" parameterType="com.easypan.entity.po.ClientDailyIncome">
+        INSERT INTO tbclientdlyincome (
+            <include refid="base_column_list" />
+        ) VALUES (
+            #{bean.clientNo}, #{bean.assetAcc}, #{bean.taClient}, #{bean.prdCode}, 
+            #{bean.realPrdCode}, #{bean.regDate}, #{bean.allotAmt}, #{bean.redeemAmt}, 
+            #{bean.divIncome}, #{bean.redeemIncome}, #{bean.forceAddAmt}, 
+            NOW(), NOW()
+        ) ON DUPLICATE KEY UPDATE 
+            allot_amt = VALUES(allot_amt),
+            redeem_amt = VALUES(redeem_amt),
+            div_income = VALUES(div_income),
+            redeem_income = VALUES(redeem_income),
+            force_add_amt = VALUES(force_add_amt),
+            update_time = NOW()
+    </insert>
+
+    <!-- 批量插入 -->
+    <insert id="insertBatch" parameterType="com.easypan.entity.po.ClientDailyIncome">
+        INSERT INTO tbclientdlyincome (
+            <include refid="base_column_list" />
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.clientNo}, #{item.assetAcc}, #{item.taClient}, #{item.prdCode}, 
+             #{item.realPrdCode}, #{item.regDate}, #{item.allotAmt}, #{item.redeemAmt}, 
+             #{item.divIncome}, #{item.redeemIncome}, #{item.forceAddAmt}, 
+             NOW(), NOW())
+        </foreach>
+    </insert>
+
+    <!-- 批量插入或更新 -->
+    <insert id="insertOrUpdateBatch" parameterType="com.easypan.entity.po.ClientDailyIncome">
+        INSERT INTO tbclientdlyincome (
+            <include refid="base_column_list" />
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.clientNo}, #{item.assetAcc}, #{item.taClient}, #{item.prdCode}, 
+             #{item.realPrdCode}, #{item.regDate}, #{item.allotAmt}, #{item.redeemAmt}, 
+             #{item.divIncome}, #{item.redeemIncome}, #{item.forceAddAmt}, 
+             NOW(), NOW())
+        </foreach>
+        ON DUPLICATE KEY UPDATE 
+            allot_amt = VALUES(allot_amt),
+            redeem_amt = VALUES(redeem_amt),
+            div_income = VALUES(div_income),
+            redeem_income = VALUES(redeem_income),
+            force_add_amt = VALUES(force_add_amt),
+            update_time = NOW()
+    </insert>
+
+    <!-- 清空临时表 -->
+    <delete id="truncateTempTable">
+        TRUNCATE TABLE tbclientdlyincometmp${tableIndex}
+    </delete>
+
+    <!-- 第一步：临时表数据准备 -->
+    <insert id="regCUSDLYIncomePre">
+        INSERT INTO tbclientdlyincometmp${tableIndex} (
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+            create_time, update_time
+        )
+        SELECT 
+            a.client_no,
+            a.asset_acc,
+            a.ta_client,
+            p.prd_code,
+            p.real_prd_code,
+            #{cfmDate},
+            COALESCE(SUM(CASE WHEN b.busin_code IN ('50','02') THEN b.cfm_amt ELSE 0 END), 0) AS allot_amt,
+            COALESCE(SUM(CASE WHEN b.busin_code IN ('03','51') THEN b.cfm_amt ELSE 0 END), 0) AS redeem_amt,
+            COALESCE(AVG(CASE 
+                WHEN d.div_mode='1' THEN d.real_amt 
+                WHEN d.div_mode='0' THEN d.reinvest_amt 
+                ELSE 0 
+            END), 0) AS div_income,
+            COALESCE(SUM(CASE 
+                WHEN (a.tot_vol = 0 AND a.last_date &lt;= #{cfmDate} AND b.busin_code='03') OR b.busin_code='51'
+                THEN b.cfm_amt 
+                ELSE 0 
+            END), 0) AS redeem_income,
+            COALESCE(SUM(CASE WHEN b.busin_code IN ('70','71','210') THEN b.cfm_amt ELSE 0 END), 0) AS force_add_amt,
+            NOW(),
+            NOW()
+        FROM tbshare${tableIndex} a
+        LEFT JOIN tbtatranscfm00 b ON a.client_no = b.client_no AND a.prd_code = b.prd_code AND b.cfm_date = #{cfmDate}
+        LEFT JOIN tbtadivdetail00 d ON a.client_no = d.client_no AND a.prd_code = d.prd_code AND d.div_date = #{cfmDate}
+        INNER JOIN tbproduct_asy p ON a.prd_code = p.prd_code
+        WHERE p.interest_way = 'JZL'
+            AND (b.client_no IS NOT NULL OR d.client_no IS NOT NULL OR a.tot_vol > 0)
+        GROUP BY a.client_no, a.asset_acc, a.ta_client, p.prd_code, p.real_prd_code
+    </insert>
+
+    <!-- 删除当天的数据 -->
+    <delete id="deleteByDateRange">
+        DELETE FROM tbclientdlyincome${tableIndex} 
+        WHERE reg_date = #{regDate}
+    </delete>
+
+    <!-- 第二步：正式表数据处理 -->
+    <insert id="regCUSDLYIncomeCal">
+        INSERT INTO tbclientdlyincome${tableIndex} (
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+            create_time, update_time
+        )
+        SELECT 
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt,
+            create_time, update_time
+        FROM tbclientdlyincometmp${tableIndex}
+    </insert>
+
+    <!-- 批量插入数据到主表（分批处理） -->
+    <insert id="insertToMainTable">
+        INSERT INTO tbclientdlyincome (
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+            create_time, update_time
+        )
+        SELECT 
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+            create_time, update_time
+        FROM tbclientdlyincome${tableIndex} 
+        WHERE reg_date = #{regDate}
+        LIMIT #{offset}, #{batchSize}
+    </insert>
+
+    <!-- 统计分表数据总量 -->
+    <select id="countTableData" resultType="java.lang.Integer">
+        SELECT COUNT(1) FROM tbclientdlyincome${tableIndex} 
+        WHERE reg_date = #{regDate}
+    </select>
+
+    <!-- 批量插入数据到主表（一次性，兼容旧版本） -->
+    <insert id="insertToMainTableAll">
+        INSERT INTO tbclientdlyincome (
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+            create_time, update_time
+        )
+        SELECT 
+            client_no, asset_acc, ta_client, prd_code, real_prd_code, reg_date,
+            allot_amt, redeem_amt, div_income, redeem_income, force_add_amt, 
+            create_time, update_time
+        FROM tbclientdlyincome${tableIndex} 
+        WHERE reg_date = #{regDate}
+    </insert>
+
+    <!-- 获取分表数据 -->
+    <select id="selectFromSubTable" resultMap="base_result_map">
+        SELECT <include refid="base_column_list" /> 
+        FROM tbclientdlyincome${tableIndex} 
+        WHERE reg_date = #{regDate}
+    </select>
+
+</mapper>

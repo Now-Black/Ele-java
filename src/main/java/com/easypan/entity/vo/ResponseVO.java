@@ -1,11 +1,24 @@
 package com.easypan.entity.vo;
 
-
+/**
+ * 响应结果封装
+ */
 public class ResponseVO<T> {
+    
     private String status;
     private Integer code;
     private String info;
     private T data;
+
+    public ResponseVO() {
+    }
+
+    public ResponseVO(String status, Integer code, String info, T data) {
+        this.status = status;
+        this.code = code;
+        this.info = info;
+        this.data = data;
+    }
 
     public String getStatus() {
         return status;
@@ -23,19 +36,19 @@ public class ResponseVO<T> {
         this.code = code;
     }
 
-    public T getData() {
-        return data;
-    }
-
-    public void setData(T data) {
-        this.data = data;
-    }
-
     public String getInfo() {
         return info;
     }
 
     public void setInfo(String info) {
         this.info = info;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
     }
 }

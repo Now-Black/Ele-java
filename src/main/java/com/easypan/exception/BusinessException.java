@@ -1,61 +1,35 @@
 package com.easypan.exception;
-import com.easypan.entity.enums.ResponseCodeEnum;
 
-
+/**
+ * 业务异常类
+ */
 public class BusinessException extends RuntimeException {
 
-    private ResponseCodeEnum codeEnum;
-
-    private Integer code;
-
-    private String message;
-
-    public BusinessException(String message, Throwable e) {
-        super(message, e);
-        this.message = message;
-    }
-
+    private String code;
+    
     public BusinessException(String message) {
         super(message);
-        this.message = message;
     }
 
-    public BusinessException(Throwable e) {
-        super(e);
+    public BusinessException(String message, Throwable cause) {
+        super(message, cause);
     }
 
-    public BusinessException(ResponseCodeEnum codeEnum) {
-        super(codeEnum.getMsg());
-        this.codeEnum = codeEnum;
-        this.code = codeEnum.getCode();
-        this.message = codeEnum.getMsg();
-    }
-
-    public BusinessException(Integer code, String message) {
+    public BusinessException(String code, String message) {
         super(message);
         this.code = code;
-        this.message = message;
     }
 
-    public ResponseCodeEnum getCodeEnum() {
-        return codeEnum;
+    public BusinessException(String code, String message, Throwable cause) {
+        super(message, cause);
+        this.code = code;
     }
 
-    public Integer getCode() {
+    public String getCode() {
         return code;
     }
 
-    @Override
-    public String getMessage() {
-        return message;
+    public void setCode(String code) {
+        this.code = code;
     }
-
-    /**
-     * 重写fillInStackTrace 业务异常不需要堆栈信息，提高效率.
-     */
-    @Override
-    public Throwable fillInStackTrace() {
-        return this;
-    }
-
 }

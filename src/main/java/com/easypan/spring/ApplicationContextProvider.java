@@ -8,6 +8,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component("applicationContextProvider")
 public class ApplicationContextProvider implements ApplicationContextAware {
     private static final Logger logger = LoggerFactory.getLogger(ApplicationContextProvider.class);
@@ -18,6 +20,7 @@ public class ApplicationContextProvider implements ApplicationContextAware {
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+
         this.applicationContext = applicationContext;
     }
 

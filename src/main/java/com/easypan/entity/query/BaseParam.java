@@ -1,40 +1,47 @@
 package com.easypan.entity.query;
 
-
+/**
+ * 查询基类
+ */
 public class BaseParam {
-	private SimplePage simplePage;
-	private Integer pageNo;
-	private Integer pageSize;
-	private String orderBy;
-	public SimplePage getSimplePage() {
-		return simplePage;
-	}
+    
+    private SimplePage simplePage;
+    
+    private Integer pageNo;
+    
+    private Integer pageSize;
+    
+    private String orderBy;
 
-	public void setSimplePage(SimplePage simplePage) {
-		this.simplePage = simplePage;
-	}
+    public SimplePage getSimplePage() {
+        return simplePage;
+    }
 
-	public Integer getPageNo() {
-		return pageNo;
-	}
+    public void setSimplePage(SimplePage simplePage) {
+        this.simplePage = simplePage;
+    }
 
-	public void setPageNo(Integer pageNo) {
-		this.pageNo = pageNo;
-	}
+    public Integer getPageNo() {
+        return pageNo;
+    }
 
-	public Integer getPageSize() {
-		return pageSize;
-	}
+    public void setPageNo(Integer pageNo) {
+        this.pageNo = pageNo;
+    }
 
-	public void setPageSize(Integer pageSize) {
-		this.pageSize = pageSize;
-	}
+    public Integer getPageSize() {
+        return pageSize;
+    }
 
-	public void setOrderBy(String orderBy){
-		this.orderBy = orderBy;
-	}
+    public void setPageSize(Integer pageSize) {
+        this.pageSize = pageSize;
+    }
 
-	public String getOrderBy(){
-		return this.orderBy;
-	}
+    public String getOrderBy() {
+        return orderBy;
+    }
+
+    public void setOrderBy(String orderBy) {
+        this.orderBy = orderBy;
+    }
 }
